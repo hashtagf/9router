@@ -55,4 +55,17 @@ describe("getCapabilitiesForModel", () => {
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-luna-agentic")).toMatchObject(kiroGpt56Expected);
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-sol-thinking-agentic")).toMatchObject(kiroGpt56Expected);
   });
+
+  it("reports Qwen3.8 27B as a vision-language model", () => {
+    const expected = {
+      contextWindow: 1000000,
+      maxOutput: 65536,
+      thinkingFormat: "qwen",
+      reasoning: true,
+      vision: true,
+    };
+
+    expect(getCapabilitiesForModel("openrouter", "qwen3.8-27b")).toMatchObject(expected);
+    expect(getCapabilitiesForModel("openrouter", "qwen/qwen3.8-27b")).toMatchObject(expected);
+  });
 });

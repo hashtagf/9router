@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { stripUnsupportedModalities } from "../../open-sse/translator/concerns/modality.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
+import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 
 const NO_VISION = { vision: false, audioInput: true, pdf: true };
 const NO_AUDIO = { vision: true, audioInput: false, pdf: true };
@@ -47,6 +48,19 @@ describe("stripUnsupportedModalities", () => {
     const body = { messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: "x" } }] }] };
     stripUnsupportedModalities(body, FORMATS.OPENAI, NO_AUDIO);
     expect(body.messages[0].content.some((b) => b.type === "image_url")).toBe(true);
+  });
+
+  it("openai: keeps image for Qwen3.8 27B", () => {
+    const body = { messages: [{ role: "user", content: [
+      { type: "text", text: "describe this image" },
+      { type: "image_url", image_url: { url: "data:image/png;base64,xx" } },
+    ] }] };
+    const caps = getCapabilitiesForModel("openrouter", "qwen/qwen3.8-27b");
+
+    stripUnsupportedModalities(body, FORMATS.OPENAI, caps);
+
+    expect(body.messages[0].content.some((b) => b.type === "image_url")).toBe(true);
+    expect(body.messages[0].content.some((b) => /image omitted/.test(b.text || ""))).toBe(false);
   });
 
   it("claude: strips image + document by capability", () => {
