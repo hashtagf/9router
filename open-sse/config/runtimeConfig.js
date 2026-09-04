@@ -39,6 +39,17 @@ function envMs(name, def) {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
+// Parse a non-negative integer env override. Retry attempts can be zero.
+export function parseNonNegativeInt(raw, def) {
+  if (raw == null || raw === "") return def;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : def;
+}
+
+function envNonNegativeInt(name, def) {
+  return parseNonNegativeInt(process.env[name], def);
+}
+
 function envUrl(name, def) {
   const raw = process.env[name]?.trim();
   return raw || def;
@@ -77,7 +88,7 @@ export const RETRY_CONFIG = {
 // Backward compat: if value is a number, treated as attempts with RETRY_CONFIG.delayMs
 export const DEFAULT_RETRY_CONFIG = {
   429: { attempts: 0, delayMs: 0 },
-  502: { attempts: 3, delayMs: 3000 },
+  502: { attempts: envNonNegativeInt("UPSTREAM_502_RETRY_ATTEMPTS", 3), delayMs: 3000 },
   503: { attempts: 3, delayMs: 2000 },
   504: { attempts: 2, delayMs: 3000 }
 };

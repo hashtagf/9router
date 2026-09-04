@@ -264,6 +264,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       modelInfo: { provider, model },
       credentials: refreshedCredentials,
       log,
+      clientSignal: request?.signal,
       clientRawRequest,
       connectionId: credentials.connectionId,
       userAgent,

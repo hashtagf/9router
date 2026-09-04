@@ -82,6 +82,26 @@ describe("BaseExecutor.execute — network error retry/fallback", () => {
     expect(thrown?.message).toBe("boom");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("does not retry when the client aborts", async () => {
+    const ex = makeExec({ baseUrl: "https://x/api", retry: { 502: { attempts: 3, delayMs: 0 } } });
+    const clientController = new AbortController();
+    fetchMock.mockImplementationOnce((_url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+    }));
+
+    const request = ex.execute({
+      model: "m",
+      body: {},
+      stream: true,
+      credentials: creds,
+      signal: clientController.signal,
+    });
+    clientController.abort();
+
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("BaseExecutor.execute — computeRetryDelay hook veto", () => {
