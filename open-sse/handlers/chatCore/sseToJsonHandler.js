@@ -4,7 +4,8 @@ import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { FORMATS } from "../../translator/formats.js";
 import { PROVIDERS } from "../../config/providers.js";
-import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
+import { buildRequestDetail, extractRequestConfig, saveUsageStats, reportDone } from "./requestDetail.js";
+import { recordRequestError } from "@/lib/requestMonitor.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
@@ -206,7 +207,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       const usage = jsonResponse.usage || {};
       appendLog({ tokens: usage, status: "200 OK" });
       saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-      if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+      reportDone({ log, reqTag, provider, model, connectionId, usage, latency: { total: Date.now() - requestStartTime } });
 
       // Same cache-inclusive total for the recorded detail, so the DB and the
       // client-facing usage can never disagree.
@@ -303,6 +304,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       const status = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599
         ? upstreamStatus
         : HTTP_STATUS.BAD_GATEWAY;
+      recordRequestError({ provider, model, connectionId, status, message: parsed.error.message, latencyMs: Date.now() - requestStartTime });
       return createErrorResult(
         status,
         parsed.error.message || "Upstream SSE stream failed"
@@ -314,7 +316,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
     const usage = parsed.usage || {};
     appendLog({ tokens: usage, status: "200 OK" });
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+    reportDone({ log, reqTag, provider, model, connectionId, usage, latency: { total: Date.now() - requestStartTime } });
 
     const totalLatency = Date.now() - requestStartTime;
     saveRequestDetail(buildRequestDetail({

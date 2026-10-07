@@ -1,6 +1,7 @@
 import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { COLORS } from "../../utils/stream.js";
 import { canonicalizeUsage } from "../../utils/usageTracking.js";
+import { recordRequestDone } from "@/lib/requestMonitor.js";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",
@@ -98,6 +99,12 @@ export function formatDoneLine({ usage, latency }) {
   }
   const ttftStr = latency?.ttft ? ` · TTFT ${latency.ttft}ms` : "";
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
+}
+
+// Record a successful request for the monitor and print the "📊 DONE" line
+export function reportDone({ log, reqTag, provider, model, connectionId, usage, latency }) {
+  recordRequestDone({ provider, model, connectionId, latency });
+  if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
 }
 
 export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }) {

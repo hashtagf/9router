@@ -6,6 +6,7 @@ import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import { getAntigravityQuotaCache } from "./antigravityQuota.js";
 import * as log from "../utils/logger.js";
+import { recordAccountLock, recordAllAccountsLocked } from "@/lib/requestMonitor.js";
 
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
@@ -125,6 +126,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       if (earliest) {
         const earliestConn = lockedConns[0];
         log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
+        recordAllAccountsLocked({ provider, model, accountCount: connections.length, retryAfter: earliest, message: earliestConn?.lastError });
         return {
           allRateLimited: true,
           retryAfter: earliest,
@@ -284,6 +286,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   const lockKey = Object.keys(lockUpdate)[0];
   const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
   log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
+  recordAccountLock({ provider, model, connectionId, connectionName: connName, status, cooldownMs, message: reason });
 
   if (provider && status && reason) {
     console.error(`❌ ${provider} [${status}]: ${reason}`);
